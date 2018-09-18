@@ -2,12 +2,10 @@
 
 from __future__ import print_function
 from teloclip import __version__
+from teloclip import log
 import teloclip
 import argparse
 import sys
-
-def log(*args, **kwargs):
-    print(*args, file=sys.stderr, **kwargs)
 
 def mainArgs():
     parser = argparse.ArgumentParser(description='Filter SAM file for clipped alignments containing unassembled telomeric repeats.',prog='teloclip')
@@ -17,7 +15,7 @@ def mainArgs():
     parser.add_argument('--minClip',type=int,default=1,help='Require clip to extend past ref contig end by at least N bases.')
     parser.add_argument('--maxBreak',type=int,default=50,help='Tolerate max N unaligned bases at contig ends.')
     parser.add_argument('--motifs',type=str,default=None, help='If set keep only reads containing given motif/s from comma delimited list of strings. \
-    By default also search for reverse complement of motifs. i.e. TTAGGG,TTAAGGG will also match CCCTAA,CCCTTAA')
+                        By default also search for reverse complement of motifs. i.e. TTAGGG,TTAAGGG will also match CCCTAA,CCCTTAA')
     parser.add_argument('--norev',default=False,action='store_true', help='If set do NOT search for reverse complement of specified motifs.')
     parser.add_argument('--matchAny',default=False,action='store_true', help='If set motif match may occur in unclipped region of alignment.')
     parser.add_argument('--version', action='version',version='%(prog)s {version}'.format(version=__version__))
