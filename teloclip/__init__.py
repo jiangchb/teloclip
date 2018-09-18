@@ -1,29 +1,208 @@
 #!/usr/bin/env python
-#python 3
-#Contact, Adam Taranto, aptaranto@ucdavis.edu
-
-##########################################################################
-# Find soft-clipped alignments containing unassembled telomeric repeats. #
-##########################################################################
 
 import os
 import sys
 import re
+import shutil
+import tempfile 
+import subprocess
+from itertools import groupby
+from datetime import datetime
+from collections import Counter
 
-__version__ = "0.0.2"
+__version__ = "0.0.3"
+
+###########
+
+def log(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
 
 class Error (Exception): pass
+
+def decode(x):
+    try:
+        s = x.decode()
+    except:
+        return x
+    return s
+
+
+def _write_script(cmds,script):
+    '''Write commands into a bash script'''
+    f = open(script, 'w+')
+    for cmd in cmds:
+        print(cmd, file=f)
+    f.close()
+
+def syscall(cmd, verbose=False):
+    '''Manage error handling when making syscalls'''
+    if verbose:
+        print('Running command:', cmd, flush=True)
+    try:
+        output = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError as error:
+        print('The following command failed with exit code', error.returncode, file=sys.stderr)
+        print(cmd, file=sys.stderr)
+        print('\nThe output was:\n', file=sys.stderr)
+        print(error.output.decode(), file=sys.stderr)
+        raise Error('Error running command:', cmd)
+    if verbose:
+        print(decode(output))
+
+def run_cmd(cmds,verbose=False,keeptemp=False):
+    '''Write and excute script'''
+    tmpdir = tempfile.mkdtemp(prefix='tmp.', dir=os.getcwd())
+    original_dir = os.getcwd()
+    os.chdir(tmpdir)
+    script = 'run_jobs.sh'
+    _write_script(cmds,script)
+    syscall('bash ' + script, verbose=verbose)
+    os.chdir(original_dir)
+    if not keeptemp:
+        shutil.rmtree(tmpdir)
+
+
+def getTimestring():
+    """Return int only string of current datetime with milliseconds."""
+    (dt, micro) = datetime.utcnow().strftime('%Y%m%d%H%M%S.%f').split('.')
+    dt = "%s%03d" % (dt, int(micro) / 1000)
+    return dt
+
+def loadSam(samfile=None,contigs=None,maxBreak=50,minClip=1):
+    SAM_QNAME   = 0
+    SAM_RNAME   = 2
+    SAM_POS     = 3
+    SAM_CIGAR   = 5
+    SAM_SEQ     = 9
+    # Init dict
+    alnDict = dict()
+    # Add contig names as keys
+    for name in contigs.keys():
+        alnDict[name] = dict()
+        alnDict[name]["L"] = list()
+        alnDict[name]["R"] = list()
+    # Read sam from stdin
+    for line in samfile:
+        # Skip header rows
+        if line[0][0] == "@":
+                continue
+        samline = line.split('\t')
+        # Check that aln contains soft clipping
+        if "S" in samline[SAM_CIGAR] and not "H" in samline[SAM_CIGAR]:
+            # Get L/R clip lengths
+            leftClipLen,rightClipLen = teloclip.checkClips(samline[SAM_CIGAR])
+            alnLen = teloclip.lenCIGAR(samline[SAM_CIGAR])
+            # Check for left overhang
+            if leftClipLen:
+                if (int(samline[SAM_POS]) <= maxBreak) and (leftClipLen >= (int(samline[SAM_POS]) + minClip)):
+                    # Overhang is on contig left
+                    alnEnd = int(samline[SAM_POS]) + alnLen
+                    try: alnDict[samline[SAM_RNAME]]["L"].append((samline[SAM_POS],alnEnd,leftClipLen,samline[SAM_SEQ],samline[SAM_QNAME]))
+                    except: log("Reference sequence not found in FAI file: " + str(samline[SAM_RNAME]))
+            # Check for right overhang
+            if rightClipLen:
+                try: ContigLen = contigs[str(samline[SAM_RNAME])]
+                except: log("Reference sequence not found in FAI file: " + str(samline[SAM_RNAME]))
+                alnEnd = int(samline[SAM_POS]) + alnLen 
+                # Check if overhang is on contig right end
+                if ((ContigLen - alnEnd) <= maxBreak) and (alnEnd + rightClipLen >= ContigLen +1 ):
+                    alnDict[samline[SAM_RNAME]]["R"].append((samline[SAM_POS],alnEnd,rightClipLen,samline[SAM_SEQ],samline[SAM_QNAME]))
+    return alnDict
+    
+
+    (alnStart,alnEnd,rightClipLen,readSeq,readname)
+
+
+def makeMask(killIdx,listlen):
+    # makeMask([0,9], 10) =  [0,1,1,1,1,1,1,1,1,0]
+    mask = [1 for i in range(listlen)]
+    for x in killIdx:
+        mask[x] = 0
+    return mask
+
+def filterList(data, exclude):
+    # filterList([1,2,3,4,5,6,7,8,9,10],[0,9]) = [2,3,4,5,6,7,8,9]
+    mask = makeMask(exclude,len(data))
+    return (d for d,s in zip(data, mask) if s) 
+
+def revComp(seq):
+    """ Rev comp DNA string."""
+    revcompl = lambda x: ''.join([{'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A', 'N':'N'}[B] for B in x][::-1])
+    return revcompl(seq)
+    
+def writeClip(idx,zpad,gap,seq,maplen):
+    # leftpad idx ID
+    padIdx = str(idx).zfill(zpad) + ':'
+    # If gap between aln end(R) or start(L) and contig end, left pad softclip with '-'
+    padseq = '-' * gap + seq
+    # Format length of ref covered by alingment 
+    readlen = 'LEN=' + str(maplen).rjust(6) 
+    log('\t'.join([padIdx,readlen,padseq]))
+
+def fasta2dict(fasta_name):
+    fh = open(fasta_name)
+    faiter = (x[1] for x in groupby(fh, lambda line: line[0] == ">"))
+    contigDict = dict()
+    for header in faiter:
+        # Drop the ">"
+        # Split on whitespace and take first item as name
+        header = header.__next__()[1:].strip()
+        name = header.split()[0]
+        # Join all sequence lines to one.
+        seq = "".join(s.strip() for s in faiter.__next__())
+        contigDict[name] = (header, seq)
+    return contigDict
+
+
+def writefasta(outfile,name,seq,length=80):
+    outfile.write('>' + str(name) + '\n')
+    while len(seq) > 0:
+        outfile.write(seq[:length] + '\n')
+        seq = seq[length:]
+
+def manageTemp(record=None, tempPath=None, scrub=False):
+    """Create single sequence fasta files or scrub temp files."""
+    if scrub and tempPath:
+        try:
+            os.remove(tempPath)
+        except OSError:
+            pass
+    else:
+        with open(tempPath, "w") as f:
+            name,seq = record
+            writefasta(f,name,seq,length=80)
+
+def dochecks(args):
+    """Housekeeping tasks: Create output files/dirs and temp dirs as required."""
+    # Make outDir if does not exist else set to current dir.
+    if args.temp:
+        if not os.path.isdir(args.temp):
+            os.makedirs(args.temp)
+        tempParent = args.temp
+    else:
+        tempParent = os.getcwd()
+    # Make temp directory
+    os.makedirs(os.path.join(tempParent,"temp_" + getTimestring()))
+    # Return full path to temp directory
+    return tempDir
+
+
+def missing_tool(tool_name):
+    path = shutil.which(tool_name)
+    if path is None:
+        return [tool_name]
+    else:
+        return []
 
 def isfile(path):
     """
     Test for existence of input file.
     """
-    path = os.path.abspath(path)
     if not os.path.isfile(path):
         print("Input file not found: %s" % path)
         sys.exit(1)
     else:
-        return path
+        return os.path.abspath(path)
 
 def read_fai(fai):
     """
