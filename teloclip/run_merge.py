@@ -87,58 +87,71 @@ def clipdown(args,ID=None,alnList=None,contig=None,temp=None,mode=None):
             pass
     else:
         # If rejected all candidate alignments and running int A or CA mode, end here.
-        # else..
-        Q2 = input("Type 'S' to skip this contig end or RETURN to continue]: ")
-        if Q2 == 'S':
+        if 'A' in mode:
             return None
         else:
-            # Prompt user to exclude suspect alignments
-            Q3 = input("To exclude alignments enter IDs as space-delimited list [or RETURN to continue]: ")
-            if Q3:
-                # Parse idx IDs, split on whitespace, scrub left zeros
-                # -1 to match list index
-                exclude = [int(x.lstrip('0')) - 1 for x in Q3.split()]
-                keepAln = teloclip.filterList(alnList, exclude)
-            else: 
-                keepAln = alnList
-            if not alnList:
-                log("No remaining alignments. Moving on.")
+            Q2 = input("Type 'S' to skip this contig end or RETURN to continue]: ")
+            if Q2 == 'S':
                 return None
-            # If running in C mode (alignments already from corrected reads) then only present option 'A'
-            log("There are %s remaining alignments. You may choose from the following options: \n\
-                - Error-correct reads and re-align to the reference contig [C] \n\
-                - Assemble raw reads and align de novo contigs to the reference contig [A] \n\
-                - Error-correct reads before running the assembly step [CA] \n" % str(len(keepAln)))
-            Q4 = input("Select an option: ").strip()
-            if Q4 == 'C' or 'CA':
-                # Write out accepted reads
-                # Write contig
-                # Align reads to self `minimap2 -x ava-pb  reads.fq reads.fq > ovlp.paf`
-                # Correct with Racon
-                # Store corrected reads
-                if Q4 == 'C':
-                    # Align corrected reads back to single contig
-                    # Import new samfile
-                    # Call clipdown() with 'C' flag
-                    # return selected alignment
-                    pass
-                elif Q4 == 'CA':
+            else:
+                # Prompt user to exclude suspect alignments
+                Q3 = input("To exclude alignments enter IDs as space-delimited list [or RETURN to continue]: ")
+                if Q3:
+                    # Parse idx IDs, split on whitespace, scrub left zeros
+                    # -1 to match list index
+                    exclude = [int(x.lstrip('0')) - 1 for x in Q3.split()]
+                    keepAln = teloclip.filterList(alnList, exclude)
+                else: 
+                    keepAln = alnList
+                if not alnList:
+                    log("No remaining alignments. Moving on.")
+                    return None
+                # If running in C mode (alignments already from corrected reads) then only present option 'A'
+                if mode == 'C':
+                    log("There are %s remaining alignments. Aligned reads have already been error corrected. \n\
+                        You may choose from the following options:\n\
+                        - Assemble raw reads and align de novo contigs to the reference contig [A]" % str(len(keepAln)))
+                else:
+                    log("There are %s remaining alignments. You may choose from the following options: \n\
+                        - Error-correct reads and re-align to the reference contig [C] \n\
+                        - Assemble raw reads and align de novo contigs to the reference contig [A] \n\
+                        - Error-correct reads before running the assembly step [CA] \n" % str(len(keepAln)))
+                Q4 = input("Select an option: ").strip()
+                if Q4 == 'C' or 'CA':
+                    # Write out accepted reads
+                    # Write contig
+                    # Align reads to self `minimap2 -x ava-pb  reads.fq reads.fq > ovlp.paf`
+                    # Correct with Racon
+                    # Store corrected reads
+                    if Q4 == 'C':
+                        # Align corrected reads back to single contig
+                        # Import new samfile
+                        # Call clipdown() with 'C' flag
+                        # clipdown(args,ID=None,alnList=None,contig=None,temp=None,mode='C')
+                        # return selected alignment
+                        pass
+                    elif Q4 == 'CA':
+                        # Run miniasm
+                        # Align any assembled contigs to current ref contig
+                        # Call clipdown() with 'CA' flag
+                        # clipdown(args,ID=None,alnList=None,contig=None,temp=None,mode='CA')
+                        # return selected alignment
+                        pass
+                elif Q4 == 'A':
+                    # Write out accepted reads
+                    # Write contig
                     # Run miniasm
                     # Align any assembled contigs to current ref contig
-                    # Call clipdown() with 'CA' flag
+                    # Call clipdown() with 'A' flag
+                    # clipdown(args,ID=None,alnList=None,contig=None,temp=None,mode='A')
                     # return selected alignment
                     pass
-            elif Q4 == 'A':
-                # Write out accepted reads
-                # Write contig
-                # Run miniasm
-                # Align any assembled contigs to current ref contig
-                # Call clipdown() with 'CA' flag
-                # return selected alignment
-                pass
-            else: 
-                log("No valid option detected. Moving on.")
-                return None
+                else: 
+                    log("No valid option detected. Moving on.")
+                    return None
+
+
+
 
 def main():
     # Get cmd line args
