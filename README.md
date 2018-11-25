@@ -2,7 +2,7 @@
 
 # teloclip
 
-![teloclip_hex](docs/teloclip_hexlogo.jpg)
+![teloclip_hex](docs/teloclip_hexlogo.jpg =250x250)
 
 Find soft-clipped alignments containing unassembled telomeric repeats.
 
