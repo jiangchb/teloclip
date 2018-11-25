@@ -1,10 +1,10 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)  [![DOI](https://zenodo.org/badge/145183771.svg)](https://zenodo.org/badge/latestdoi/145183771)
 
-# teloclip
-
 <p align="center">
-  <img src="docs/teloclip_hexlogo.jpg"  width="250" height="250" title="teloclip_hex">
+  <img src="docs/teloclip_hexlogo.jpg"  width="350" height="350" title="teloclip_hex">
 </p>
+
+# teloclip
 
 Find soft-clipped alignments containing unassembled telomeric repeats.
 
