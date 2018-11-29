@@ -1,5 +1,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)  [![DOI](https://zenodo.org/badge/145183771.svg)](https://zenodo.org/badge/latestdoi/145183771)
 
+<p align="center">
+  <img src="docs/teloclip_hexlogo.jpg"  width="350" height="350" title="teloclip_hex">
+</p>
+
 # teloclip
 
 Find soft-clipped alignments containing unassembled telomeric repeats.
@@ -43,6 +47,7 @@ and report only those containing a match.
 Teloclip is based on concepts from Torsten Seemann's excellent tool [samclip](https://github.com/tseemann/samclip).
 Samclip can be used to remove clipped alignments from a samfile prior to variant calling.
 
+Teloclip hex-sticker was designed by [@Super_Coleider](www.instagram.com/Super_Coleider).
 
 ## Installation
 
