@@ -90,8 +90,8 @@ def loadSam(samfile=None,contigs=None,maxBreak=50,minClip=1):
         # Check that aln contains soft clipping
         if "S" in samline[SAM_CIGAR] and not "H" in samline[SAM_CIGAR]:
             # Get L/R clip lengths
-            leftClipLen,rightClipLen = teloclip.checkClips(samline[SAM_CIGAR])
-            alnLen = teloclip.lenCIGAR(samline[SAM_CIGAR])
+            leftClipLen,rightClipLen = checkClips(samline[SAM_CIGAR])
+            alnLen = lenCIGAR(samline[SAM_CIGAR])
             # Check for left overhang
             if leftClipLen:
                 if (int(samline[SAM_POS]) <= maxBreak) and (leftClipLen >= (int(samline[SAM_POS]) + minClip)):
@@ -110,7 +110,7 @@ def loadSam(samfile=None,contigs=None,maxBreak=50,minClip=1):
     return alnDict
     
 
-    (alnStart,alnEnd,rightClipLen,readSeq,readname)
+    #(alnStart,alnEnd,rightClipLen,readSeq,readname)
 
 
 def makeMask(killIdx,listlen):

@@ -3,10 +3,11 @@
 from __future__ import print_function
 from teloclip import __version__
 from teloclip import log
-import wrappers
+#import wrappers
 import teloclip
 import argparse
 import sys
+import os
 
 # Select version-compatible user input function
 if not sys.version_info[0] > 2:
@@ -18,18 +19,21 @@ def mainArgs():
     # Input options
     parser.add_argument('samfile', nargs='?', type=argparse.FileType('rU'), default=sys.stdin)
     parser.add_argument('--refIdx',type=str,required=True,help='Path to fai index for reference fasta. Index fasta using `samtools faidx FASTA`')
-    parser.add_argument('--ref',type=str,required=True,help='Path to reference fasta.')
+    parser.add_argument('--refSeq',type=str,required=True,help='Path to reference fasta.')
     # Output options
-    parser.add_argument('--out',type=str,required=True,help='Output updated contigs to file.')
+    parser.add_argument('--outGenome',type=str,required=False,help='Output updated contigs to file.')
+    parser.add_argument('--prefix',type=str,default=None,required=False,help='Use this prefix for output files. Default: None.')
+    parser.add_argument('--extractReads',default=False,action='store_true',help='If set, write overhang reads to fasta by contig.')
+    parser.add_argument('--extractDir',type=str,default=None,required=False,help='Write extracted reads to this directory. Default: cwd.')
     parser.add_argument('--temp',type=str,default=None,help='Path to temp directory.')
     # Settings
     parser.add_argument('--minClip',type=int,default=1,help='Require clip to extend past ref contig end by at least N bases.')
     parser.add_argument('--maxBreak',type=int,default=50,help='Tolerate max N unaligned bases at contig ends.')
     parser.add_argument('--readType',default=None,choices=[None,'PB','ONT'],help='Set platform type for aligned long-reads. PB = PacBio, ONT = Oxford Nanopore Technologies.')
     # Third party apps
-    parser.add_argument('--minimap2',type=str,default='minimap2',help='Path to minimap2.')
-    parser.add_argument('--racon',type=str,default='racon',help='Path to racon.')
-    parser.add_argument('--miniasm',type=str,default='miniasm',help='Path to miniasm.')
+    ##parser.add_argument('--minimap2',type=str,default='minimap2',help='Path to minimap2.')
+    ##parser.add_argument('--racon',type=str,default='racon',help='Path to racon.')
+    ##parser.add_argument('--miniasm',type=str,default='miniasm',help='Path to miniasm.')
     # Version info
     parser.add_argument('--version', action='version',version='%(prog)s {version}'.format(version=__version__))
     args = parser.parse_args()
@@ -42,6 +46,40 @@ def mainArgs():
 # Del fasta
 # manageTemp(tempPath=filePath, scrub=True)
 
+
+def splitbycontig(alignments=None,contigs=None,prefix=None,outdir=None):
+    # Note: Check if sam read seq is auto flipped when alignment is on reverse strand
+    if outdir:
+        if not os.path.isdir(outdir):
+            os.makedirs(outdir)
+    else:
+        outdir = os.getcwd()
+    # For each contig
+    for name in contigs.keys():
+        if prefix:
+            base = '_'.join([prefix,name])
+        else:
+            base = name
+        # Count alignments for each end of contig
+        leftCount = len(alignments[name]['L'])
+        rightCount = len(alignments[name]['R'])
+        # If any alignments overhanging the right end of current contig
+        if rightCount:
+            # Open output file
+            outfileR = os.path.join(outdir,'_'.join([base,str(rightCount)]) + '.fasta')
+            # Output reads aligned to right end of contig
+            with open(outfileR, "w") as fileR:
+                for aln in alignments[name]['R']: # i.e [(alnStart,alnEnd,rightClipLen,readSeq,readname)]
+                    teloclip.writefasta(fileR,str(aln[4]),str(aln[3]))
+                #overhang = aln[3][-aln[2]:]        
+        if leftCount:
+            # Open output file
+            outfileL = os.path.join(outdir,'_'.join([base,str(leftCount)]) + '.fasta')
+            # Output reads aligned to left end of contig
+            with open(outfileL, "w") as fileL:
+                for aln in alignments[name]['L']: # i.e #[(alnStart,alnEnd,leftClipLen,readSeq,readname)]
+                    teloclip.writefasta(fileL,str(aln[4]),str(aln[3]))
+                #overhang = aln[3][:aln[2]]
 
 def clipdown(args,ID=None,alnList=None,contig=None,temp=None,mode=None):
     # Note: add flags for having already run error correction + 
@@ -151,25 +189,23 @@ def clipdown(args,ID=None,alnList=None,contig=None,temp=None,mode=None):
                     return None
 
 
-
-
 def main():
     # Get cmd line args
     args = mainArgs()
 
     # Check for required programs.
-    tools = [args.minimap2,args.racon,args.miniasm]
-    missing_tools = []
-    for tool in tools:
-        missing_tools += teloclip.missing_tool(tool)
-    if missing_tools:
-        log('WARNING: Some tools required by teloclip-merge could not be found: ' +
-              ', '.join(missing_tools))
-        log('You may need to install them to use all features.')
+    ##tools = [args.minimap2,args.racon,args.miniasm]
+    ##missing_tools = []
+    ##for tool in tools:
+    ##    missing_tools += teloclip.missing_tool(tool)
+    ##if missing_tools:
+    ##    log('WARNING: Some tools required by teloclip-merge could not be found: ' +
+    ##          ', '.join(missing_tools))
+    ##    log('You may need to install them to use all features.')
     
     # Load reference genome to dict with format
     # {'name':(header, seq)}
-    contigs = teloclip.fasta2dict(args.ref)
+    ##contigs = teloclip.fasta2dict(args.refSeq)
     # Load ref contigs lengths as dict
     contigInfo = teloclip.read_fai(args.refIdx)
 
@@ -178,42 +214,47 @@ def main():
     alignments = teloclip.loadSam(samfile=args.samfile,contigs=contigInfo,maxBreak=args.maxBreak,minClip=args.minClip)
 
     # Create output and temp paths as required
-    # Update to use args.out and args.temp
-    tempDir = teloclip.dochecks(args)
+    # Update to use args.outGenome and args.temp
+    ##tempDir = teloclip.dochecks(args)
 
-    for name in contigs.keys():
-        # Count alignments for each end of contig
-        leftCount = len(alignments[name]['L'])
-        rightCount = len(alignments[name]['R'])
-        newSeqR = None
-        newSeqL = None
-        # Process right end alignments if found
-        if rightCount:
-            # Run interactive mode
-            # If edits made return updated (header, seq) object
-            newSeqR = clipdown(args,ID=name,alnList=alignments[name]['R'],contig=contigs[name],temp=tempDir,mode="R")
-            if newSeqR:
-                contigs[name] = newSeqR
-        # Process left end alignments if found
-        if leftCount:
-            # Run interactive mode
-            # If edits made return updated (header, seq) object
-            newSeqL = clipdown(args,ID=name,alnList=alignments[name]['L'],contig=contigs[name],temp=tempDir,mode="L")
-            if newSeqL:
-                contigs[name] = newSeqL
-        # Update counters
-            # Left only
-            # Right only
-            # Both
-            # Neither
+    if args.extractReads:
+        splitbycontig(alignments=alignments,contigs=contigInfo,prefix=args.prefix,outdir=args.extractDir)
+    
+    sys.exit(0)
 
-    # Write updated contigs to outfile
-    output = open(args.out, 'w')
-    for name in contigs:
-       header,seq = contigs[name]
-       teloclip.writefasta(output,name,seq,header=header,length=80)
-    output.close()
-
+    ##for name in contigs.keys():
+    ##    # Count alignments for each end of contig
+    ##    leftCount = len(alignments[name]['L'])
+    ##    rightCount = len(alignments[name]['R'])
+    ##    newSeqR = None
+    ##    newSeqL = None
+    ##    # Process right end alignments if found
+    ##    if rightCount:
+    ##        # Run interactive mode
+    ##        # If edits made return updated (header, seq) object
+    ##        newSeqR = clipdown(args,ID=name,alnList=alignments[name]['R'],contig=contigs[name],temp=tempDir,mode="R")
+    ##        if newSeqR:
+    ##            contigs[name] = newSeqR
+    ##    # Process left end alignments if found
+    ##    if leftCount:
+    ##        # Run interactive mode
+    ##        # If edits made return updated (header, seq) object
+    ##        newSeqL = clipdown(args,ID=name,alnList=alignments[name]['L'],contig=contigs[name],temp=tempDir,mode="L")
+    ##        if newSeqL:
+    ##            contigs[name] = newSeqL
+    ##    # Update counters
+    ##        # Left only
+    ##        # Right only
+    ##        # Both
+    ##        # Neither
+    ##
+    ### Write updated contigs to outfile
+    ##output = open(args.outGenome, 'w')
+    ##for name in contigs:
+    ##   header,seq = contigs[name]
+    ##   teloclip.writefasta(output,name,seq,header=header,length=80)
+    ##output.close()
+    ##
     # Report counters
 
 
