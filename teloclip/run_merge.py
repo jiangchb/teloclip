@@ -66,20 +66,21 @@ def splitbycontig(alignments=None,contigs=None,prefix=None,outdir=None):
         # If any alignments overhanging the right end of current contig
         if rightCount:
             # Open output file
-            outfileR = os.path.join(outdir,'_'.join([base,str(rightCount)]) + '.fasta')
+            outfileR = os.path.join(outdir,'_'.join([base,'R',str(rightCount)]) + '.fasta')
             # Output reads aligned to right end of contig
             with open(outfileR, "w") as fileR:
                 for aln in alignments[name]['R']: # i.e [(alnStart,alnEnd,rightClipLen,readSeq,readname)]
-                    teloclip.writefasta(fileR,str(aln[4]),str(aln[3]))
+                    masked = aln[3][:-aln[2]] + aln[3][-aln[2]:].lower()
+                    teloclip.writefasta(fileR,str(aln[4]),masked)
                 #overhang = aln[3][-aln[2]:]        
         if leftCount:
             # Open output file
-            outfileL = os.path.join(outdir,'_'.join([base,str(leftCount)]) + '.fasta')
+            outfileL = os.path.join(outdir,'_'.join([base,'L',str(leftCount)]) + '.fasta')
             # Output reads aligned to left end of contig
             with open(outfileL, "w") as fileL:
                 for aln in alignments[name]['L']: # i.e #[(alnStart,alnEnd,leftClipLen,readSeq,readname)]
-                    teloclip.writefasta(fileL,str(aln[4]),str(aln[3]))
-                #overhang = aln[3][:aln[2]]
+                    masked = aln[3][:aln[2]].lower() + aln[3][aln[2]:]
+                    teloclip.writefasta(fileL,str(aln[4]),masked)
 
 def clipdown(args,ID=None,alnList=None,contig=None,temp=None,mode=None):
     # Note: add flags for having already run error correction + 
