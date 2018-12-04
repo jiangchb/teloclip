@@ -47,6 +47,7 @@ and report only those containing a match.
 Teloclip is based on concepts from Torsten Seemann's excellent tool [samclip](https://github.com/tseemann/samclip).
 Samclip can be used to remove clipped alignments from a samfile prior to variant calling.
 
+Teloclip hex-sticker was designed by [@Super_Coleider](www.instagram.com/Super_Coleider).
 
 ## Installation
 
